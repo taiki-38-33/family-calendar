@@ -1,0 +1,39 @@
+{
+	"$schema": "https://wrangler.tools/schema",
+	"name": "family-calendar",
+	"main": "src/worker.ts",
+	"type": "module",
+	"compatibility_date": "2026-04-21",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "family-calendar",
+			"database_id": "",
+			"remote": true
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "CALENDAR_WS",
+				"class_name": "CalendarWebSocket",
+				"script_name": "family-calendar"
+			}
+		]
+	},
+	"routes": [
+		{
+			"pattern": "*",
+			"zone_name": "example.com"
+		}
+	],
+	"preview_urls": false,
+	"bundling": {
+		"alias": {
+			"readable-stream": "stream"
+		}
+	}
+}
