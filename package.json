@@ -6,28 +6,10 @@
     "dev": "wrangler dev",
     "build": "tsc",
     "start": "wrangler dev",
-    "lint": "tsc --noEmit",
     "deploy": "wrangler deploy"
-  },
-  "dependencies": {
-    "@opennextjs/cloudflare": "^1.19.1",
-    "hono": "^4.12.14",
-    "next": "16.2.3",
-    "react": "19.1.5",
-    "react-dom": "19.1.5",
-    "react-calendar": "^4.8.0",
-    "date-fns": "^3.3.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260420.1",
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20.19.39",
-    "@types/react": "^19.1.5",
-    "@types/react-dom": "^19.1.5",
-    "eslint": "^9",
-    "eslint-config-next": "15.4.6",
-    "tailwindcss": "^4",
     "typescript": "^5.7.4",
     "wrangler": "^4.83.0"
   }
