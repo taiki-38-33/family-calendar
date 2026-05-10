@@ -3,12 +3,13 @@
 	"name": "family-calendar",
 	"main": "src/worker.ts",
 	"type": "module",
+	"account_id": "bd1e04aa6b7f0e7a2dee34b8b47531e9",
 	"compatibility_date": "2026-04-21",
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "family-calendar",
-			"database_id": "",
+			"database_id": "7f831b93-2ada-42eb-8662-9e11495d4983",
 			"remote": true
 		}
 	],
