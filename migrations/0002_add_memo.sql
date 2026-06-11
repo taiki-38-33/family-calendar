@@ -1,0 +1,3 @@
+-- Migration 0002: memo column already exists in 0001_initial.sql - no operation needed
+-- This migration is a no-op to maintain migration sequence
+-- If this migration fails on deployment, it means the schema is already correct

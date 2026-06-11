@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS events (
   date TEXT NOT NULL,
   startTime TEXT,
   endTime TEXT,
+  memo TEXT,
   createdBy TEXT NOT NULL,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL

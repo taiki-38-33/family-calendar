@@ -2,6 +2,26 @@ export interface Env {
 	DB: D1Database;
 }
 
+const ALLOWED_EMAILS = ['taiki.38.33@gmail.com', 'erknm.21@docomo.ne.jp'];
+
+// Cloudflare Access が付与する認証済みメールヘッダーを検証する。
+// Access を通過していないリクエストにはこのヘッダーが存在しない。
+function getAuthenticatedEmail(request: Request): string | null {
+	const email = request.headers.get('Cf-Access-Authenticated-User-Email');
+	if (email && ALLOWED_EMAILS.includes(email.toLowerCase())) {
+		return email.toLowerCase();
+	}
+	return null;
+}
+
+const ACCESS_DENIED_HTML = `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>ログインが必要です</title>
+<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f5f5f5;margin:0}div{text-align:center;background:white;padding:40px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1)}</style>
+</head>
+<body><div><h1>🔒 ログインが必要です</h1><p>このアプリは家族専用です。<br>Cloudflare Access のログインを通過してからご利用ください。</p></div></body>
+</html>`;
+
 interface CalendarEvent {
 	id: string;
 	title: string;
@@ -19,11 +39,8 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
 	const url = new URL(request.url);
 	const path = url.pathname;
 
-	const corsHeaders = {
-		'Access-Control-Allow-Origin': '*',
-		'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-		'Access-Control-Allow-Headers': 'Content-Type',
-	};
+	// 同一サイト内からしか使わないため CORS の開放はしない
+	const corsHeaders: Record<string, string> = {};
 
 	if (request.method === 'OPTIONS') {
 		return new Response(null, { headers: corsHeaders });
@@ -201,8 +218,6 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
 }
 
 // Serve HTML UI
-const ALLOWED_EMAILS = ['taiki.38.33@gmail.com', 'erknm.21@docomo.ne.jp'];
-
 function getHtmlResponse(): Response {
 	return new Response(
 		`<!DOCTYPE html>
@@ -528,21 +543,6 @@ function getHtmlResponse(): Response {
 	</style>
 </head>
 <body>
-	<div id="auth">
-		<div class="auth-box">
-			<h2>📅 長谷川家の予定</h2>
-			<p style="text-align: center; color: #999; margin-bottom: 30px;">メールアドレスでログイン</p>
-			<form id="login" class="auth-form">
-				<div class="form-group">
-					<label>メールアドレス</label>
-					<input type="email" id="email" placeholder="メールアドレスを入力" required>
-				</div>
-				<button type="submit">ログイン</button>
-				<div id="authError"></div>
-			</form>
-		</div>
-	</div>
-
 	<div id="app">
 		<div class="container">
 			<div class="auth-header">
@@ -620,37 +620,21 @@ function getHtmlResponse(): Response {
 	</div>
 
 	<script>
-		const ALLOWED = ['taiki.38.33@gmail.com', 'erknm.21@docomo.ne.jp'];
 		let currentDate = new Date();
 		let selectedEvent = null;
 
-		function isAuth() { return !!localStorage.getItem('auth'); }
-		function showAuth() {
-			document.getElementById('auth').style.display = 'block';
-			document.getElementById('app').style.display = 'none';
-		}
-		function showApp() {
-			document.getElementById('auth').style.display = 'none';
+		// 認証は Cloudflare Access が行う。ここでは表示用にメールアドレスを取得するだけ。
+		async function showApp() {
 			document.getElementById('app').style.display = 'block';
-			document.getElementById('user').textContent = localStorage.getItem('auth');
+			try {
+				const res = await fetch('/api/me');
+				const me = await res.json();
+				document.getElementById('user').textContent = me.email || '';
+			} catch (e) {}
 		}
 		function logout() {
-			localStorage.removeItem('auth');
-			showAuth();
+			location.href = '/cdn-cgi/access/logout';
 		}
-
-		document.getElementById('login').addEventListener('submit', e => {
-			e.preventDefault();
-			const email = document.getElementById('email').value;
-			if (ALLOWED.includes(email)) {
-				localStorage.setItem('auth', email);
-				showApp();
-				loadAndSetup();
-			} else {
-				document.getElementById('authError').textContent = 'このメールアドレスはアクセス権がありません';
-				document.getElementById('authError').style.display = 'block';
-			}
-		});
 
 		const MEMBERS = {
 			'taiki': { name: '太希', color: '#FF6B6B' },
@@ -964,13 +948,9 @@ function getHtmlResponse(): Response {
 			await renderCalendar();
 		}
 
-		if (isAuth()) {
-			showApp();
-			loadAndSetup();
-			setInterval(loadAndSetup, 30000);
-		} else {
-			showAuth();
-		}
+		showApp();
+		loadAndSetup();
+		setInterval(loadAndSetup, 30000);
 	</script>
 </body>
 </html>`,
@@ -986,6 +966,28 @@ function getHtmlResponse(): Response {
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
+
+		// 認証チェック（すべてのページ・APIに適用）
+		const userEmail = getAuthenticatedEmail(request);
+		if (!userEmail) {
+			if (url.pathname.startsWith('/api/')) {
+				return new Response(JSON.stringify({ error: 'authentication required' }), {
+					status: 401,
+					headers: { 'Content-Type': 'application/json' },
+				});
+			}
+			return new Response(ACCESS_DENIED_HTML, {
+				status: 403,
+				headers: { 'Content-Type': 'text/html; charset=utf-8' },
+			});
+		}
+
+		// GET /api/me - ログイン中のユーザー情報
+		if (url.pathname === '/api/me') {
+			return new Response(JSON.stringify({ email: userEmail }), {
+				headers: { 'Content-Type': 'application/json' },
+			});
+		}
 
 		// API routes
 		if (url.pathname.startsWith('/api/')) {
